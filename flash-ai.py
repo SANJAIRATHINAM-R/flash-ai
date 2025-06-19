@@ -1,18 +1,20 @@
-import speech_recognition as sr # type: ignore
-import pyttsx3 # type: ignore
-import openai # type: ignore
+import speech_recognition as sr  # type: ignore
+import pyttsx3  # type: ignore
+import openai
 import os
-from dotenv import load_dotenv # type: ignore
 
-# Load OpenAI API key from .env file (recommended for security)
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load OpenAI API key from file
+if not os.path.exists("key.env"):
+    raise FileNotFoundError("Missing 'key.env'. Please create the file and paste your API key into it.")
 
-# Initialize the recognizer and text-to-speech engine
+with open("key.env", "r") as f:
+    api_key = f.read().strip()
+
+client = openai.OpenAI(api_key=api_key)
+
+# Initialize speech recognition and TTS
 recognizer = sr.Recognizer()
 engine = pyttsx3.init()
-
-# Configure TTS voice rate and volume
 engine.setProperty('rate', 160)
 engine.setProperty('volume', 1.0)
 
@@ -22,20 +24,22 @@ def speak(text):
     engine.runAndWait()
 
 def listen():
-    with sr.Microphone() as source:
-        print("Listening...")
-        audio = recognizer.listen(source)
     try:
+        with sr.Microphone() as source:
+            print("Listening...")
+            audio = recognizer.listen(source)
         return recognizer.recognize_google(audio)
     except sr.UnknownValueError:
         return "Sorry, I couldn't understand."
     except sr.RequestError:
         return "Speech recognition service is unavailable."
+    except Exception as e:
+        return f"Error with microphone: {e}"
 
 def generate_ai_reply(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Or "gpt-4" if your account supports it
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # or "gpt-4" if available
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
@@ -47,7 +51,7 @@ def handle_command(command):
     if "hello" in command:
         return "Hi! How can I help you today?"
     elif "your name" in command:
-        return "I am your AI assistant."
+        return "I am Flash, your AI assistant."
     elif "how are you" in command:
         return "I'm doing great, thank you!"
     elif "exit" in command or "bye" in command:
@@ -63,4 +67,3 @@ while True:
     print("You:", command)
     reply = handle_command(command)
     speak(reply)
-
